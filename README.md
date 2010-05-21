@@ -9,24 +9,29 @@ Requirements
 ------------
 
  * MagLev
- * Sinatra: sudo gem install sinatra
+ * Sinatra, Rack: gem install sinatra
 
 If you also want to run against MRI/Redis, see README-orig.md
 
  * Ruby
  * Redis: http://code.google.com/p/redis/
+ * Sinatra, Rack: sudo gem install sinatra
 
 Starting Application
 --------------------
 
-Make sure the MagLev server is running, then:
+The Rakefile has tasks to run and initialize test data for both MRI and
+MagLev.  To run the MagLev demo, make sure the MagLev server is running,
+then:
 
-    $ rake
+    $ rake maglev:run
 
 If you want to create some random users and have them follow each other,
-you can do (make sure redis is running):
+you can do:
 
-    $ rake mri:signup
+    $ rake maglev:signup
+
+There are similar tasks for MRI, use rake -T to list them.
 
 Changes from Original
 ---------------------
