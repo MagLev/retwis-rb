@@ -1,24 +1,35 @@
-Retwis-RB
-=========
+MagLev Retwis-RB
+================
 
-An example Twitter application using the Redis key-value database.
+An example Twitter application using MagLev as the database.  This example
+is forked from Daniel Lucraft's (dan@fluentradical.com) version:
+http://github.com/danlucraft/retwis-rb
 
-Daniel Lucraft (dan@fluentradical.com)
+For this checkin, there is no MagLev support, just adding Rakefile, new
+readme and the etc/* files.
 
 Requirements
 ------------
 
- * Ruby
+ * MagLev
  * Sinatra: sudo gem install sinatra
+
+If you also want to run against MRI/Redis, see README-orig.md
+
+ * Ruby
  * Redis: http://code.google.com/p/redis/
 
 Starting Application
 --------------------
 
-Make sure the redis server is running.
-Run:
+Make sure the MagLev server is running, then:
 
-   ruby app.rb
+    $ rake
+
+If you want to create some random users and have them follow each other,
+you can do (make sure redis is running):
+
+    $ rake mri:signup
 
 License
 -------
