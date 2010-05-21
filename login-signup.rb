@@ -5,7 +5,7 @@ before do
       @logged_in_user = User.find_by_id(session["user_id"])
     redirect '/login', 303
   end
-  puts "logged in as:#{@logged_in_user.username}" if @logged_in_user
+  # puts "logged in as:#{@logged_in_user.username}" if @logged_in_user
 end
 
 get '/login' do
