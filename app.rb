@@ -9,12 +9,10 @@ require 'login-signup'
 
 set :sessions, true
 
+$title = defined?(Maglev) ? "MagLev Twitter" : "Retwis-RB"
+
 def redis
   $redis ||= RedisClient.new(:timeout => nil)
-end
-
-before do
-  keys = redis.keys("*")
 end
 
 get '/' do
