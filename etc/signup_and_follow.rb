@@ -3,15 +3,21 @@
 
 require 'benchmark'
 require 'digest/md5'
-require 'rubyredis'
-require 'domain'
+
+# Maglev does not need to require domain-maglev.rb, since that should have
+# previously been committed to the repository.  Likewise, we do not want to
+# load rubyredis since MagLev doesn't use it.
+unless defined? Maglev
+  require 'rubyredis'
+  require 'domain'
+
+  def redis
+    $redis ||= RedisClient.new(:timeout => nil)
+  end
+end
 
 NUM_FOLLOWEES = 10  # number of users each user follows
 N = 1_000           # The number of users
-
-def redis
-  $redis ||= RedisClient.new(:timeout => nil)
-end
 
 # Create and signup +n+ users.  Each user will be named "testuser<n>" and
 # will have a password of "password<n>".

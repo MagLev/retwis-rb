@@ -2,14 +2,28 @@
 require 'rubygems'
 require 'sinatra'  
 require 'erb'
-require 'rubyredis'
 
-require 'domain'
+if defined? Maglev
+  require 'domain-maglev'
+  require 'etc/txn_wrapper'
+
+  use MagLevTransactionWrapper
+
+  # MagLev currently does not run from the Sinatra at_exit handler
+  # (issue with bactrace format).
+  set :run,    true
+
+  $title = "MagLev Twitter"
+else
+  require 'rubyredis'
+  require 'domain'
+
+  $title = "Retwis-RB"
+end
+
 require 'login-signup'
 
 set :sessions, true
-
-$title = defined?(Maglev) ? "MagLev Twitter" : "Retwis-RB"
 
 def redis
   $redis ||= RedisClient.new(:timeout => nil)
