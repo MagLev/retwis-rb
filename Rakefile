@@ -1,3 +1,7 @@
+require 'rake/clean'
+
+CLEAN.include 'statmonitor*.out'
+
 task :default => :'mri:run'
 
 namespace :maglev do
