@@ -4,6 +4,8 @@ CLEAN.include 'statmonitor*.out'
 
 task :default => :'mri:run'
 
+directory 'log'
+
 namespace :maglev do
   desc "Commit code, setup db and run app"
   task :run => [:commit, :initdb] do
@@ -39,6 +41,15 @@ namespace :mri do
   end
 end
 
+task :env do
+  # Setup the environment for these tasks.  If STONENAME is set,
+  # maglev-ruby does NOT set GEMSTONE_SYS_CONF or GEMSTONE_GLOBAL_DIR We
+  # pick up ./gem.conf for the VMs, and the stone is already configured
+  # with ./perf/perf.conf
+  ENV['STONENAME'] = PERF_STONE
+  ENV['GEMSTONE_GLOBAL_DIR'] = MAGLEV_HOME
+end
+
 # The :perf namespace defines tasks that create and manage a carefully
 # configured stone, and tasks to run against that stone so that we can do
 # some performance analysis.
@@ -46,15 +57,6 @@ namespace :perf do
   MAGLEV_HOME = ENV['MAGLEV_HOME']
   PERF_STONE = "perf"
   PERF_CONF  = File.join(File.dirname(__FILE__), "perf", "perf.conf")
-
-  task :env do
-    # Setup the environment for these tasks.  If STONENAME is set,
-    # maglev-ruby does NOT set GEMSTONE_SYS_CONF or GEMSTONE_GLOBAL_DIR We
-    # pick up ./gem.conf for the VMs, and the stone is already configured
-    # with ./perf/perf.conf
-    ENV['STONENAME'] = PERF_STONE
-    ENV['GEMSTONE_GLOBAL_DIR'] = MAGLEV_HOME
-  end
 
   desc "Run the app against the perf stone"
   task :run => :env do
@@ -82,14 +84,6 @@ namespace :perf do
     end
   end
 
-  task :pbm do
-    puts "PERF_CONF: '#{PERF_CONF}'"
-    cd(MAGLEV_HOME) do
-      sh %{ ls }
-      sh %{ ls etc/conf.d }
-    end
-  end
-
   desc "Start statmonitor (waits...)"
   task :statmonitor do
     out = File.join(File.dirname(__FILE__), "statmonitor-#{$$}")
@@ -106,5 +100,19 @@ namespace :perf do
   task :vsd do
     vsd = File.join(ENV['MAGLEV_HOME'], "gemstone", "bin", "vsd")
     sh %{ #{vsd} }
+  end
+end
+
+# Run the app against lighttpd talking SCGI to MagLev
+namespace :scgi do
+  desc "Rm the log files and start the lighttpd server"
+  task :server => 'log' do
+    rm_f ['log/error.log', 'log/access.log']
+    sh 'lighttpd -D -f perf/lighttpd.conf '
+  end
+
+  desc "Run MagLev on the Sinatra SCGI app"
+  task :app => :env do
+    sh "#{ENV['MAGLEV_HOME']}/bin/rackup scgi.ru"
   end
 end
