@@ -86,7 +86,7 @@ namespace :perf do
   end
 
   desc "Start statmonitor (waits...)"
-  task :statmonitor do
+  task :statmonitor => :env do
     out = File.join(File.dirname(__FILE__), "statmonitor-#{$$}")
     smon = File.join(MAGLEV_HOME, "gemstone", "bin", "statmonitor")
     # -A:    Collects system stats
@@ -119,7 +119,7 @@ namespace :scgi do
 
   desc "Run MagLev on the Sinatra SCGI app"
   task :app => :env do
-    sh "#{MAGLEV_HOME}/bin/rackup maglev.ru"
+    sh "#{MAGLEV_HOME}/bin/rackup --server SCGI --port 3000 maglev.ru"
   end
 
   desc "kill SCGI apps named in rack-*.pid"

@@ -8,7 +8,7 @@ Requirements
 ------------
 
 * MagLev
-* Sinatra, Rack: gem install sinatra
+* Sinatra, Rack: maglev-gem install sinatra
 
 If you also want to run against MRI/Redis, see README-orig.md
 
