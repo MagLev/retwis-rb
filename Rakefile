@@ -6,10 +6,22 @@ task :default => :'mri:run'
 
 directory 'log'
 
+MAGLEV_HOME = ENV['MAGLEV_HOME']
+PERF_STONE = "perf"
+
+task :env do
+  # Setup the environment for the :perf tasks.
+  # If STONENAME is set, maglev-ruby does NOT set GEMSTONE_SYS_CONF or
+  # GEMSTONE_GLOBAL_DIR We pick up ./gem.conf for the VMs, and the stone is
+  # already configured with ./perf/perf.conf
+  ENV['STONENAME'] = PERF_STONE
+  ENV['GEMSTONE_GLOBAL_DIR'] = MAGLEV_HOME
+end
+
 namespace :maglev do
-  desc "Commit code, setup db and run app"
+  desc "Commit code, setup db and run app with WEBrick"
   task :run => [:commit, :initdb] do
-    sh %{ maglev-ruby app.rb }
+    sh %{ #{MAGLEV_HOME}/bin/rackup --port 4567 maglev.ru }
   end
 
   desc "Create a bunch of users, have them follow each other."
@@ -41,21 +53,10 @@ namespace :mri do
   end
 end
 
-task :env do
-  # Setup the environment for these tasks.  If STONENAME is set,
-  # maglev-ruby does NOT set GEMSTONE_SYS_CONF or GEMSTONE_GLOBAL_DIR We
-  # pick up ./gem.conf for the VMs, and the stone is already configured
-  # with ./perf/perf.conf
-  ENV['STONENAME'] = PERF_STONE
-  ENV['GEMSTONE_GLOBAL_DIR'] = MAGLEV_HOME
-end
-
 # The :perf namespace defines tasks that create and manage a carefully
 # configured stone, and tasks to run against that stone so that we can do
 # some performance analysis.
 namespace :perf do
-  MAGLEV_HOME = ENV['MAGLEV_HOME']
-  PERF_STONE = "perf"
   PERF_CONF  = File.join(File.dirname(__FILE__), "perf", "perf.conf")
 
   desc "Run the app against the perf stone"
@@ -98,13 +99,18 @@ namespace :perf do
 
   desc "Start VSD (waits...)"
   task :vsd do
-    vsd = File.join(ENV['MAGLEV_HOME'], "gemstone", "bin", "vsd")
+    vsd = File.join(MAGLEV_HOME, "gemstone", "bin", "vsd")
     sh %{ #{vsd} }
   end
 end
 
 # Run the app against lighttpd talking SCGI to MagLev
 namespace :scgi do
+  desc "Show processes listening on ports 300?"
+  task :list do
+    sh %{ netstat -anf inet | grep 300 ; true }
+  end
+
   desc "Rm the log files and start the lighttpd server"
   task :server => 'log' do
     rm_f ['log/error.log', 'log/access.log']
@@ -113,6 +119,48 @@ namespace :scgi do
 
   desc "Run MagLev on the Sinatra SCGI app"
   task :app => :env do
-    sh "#{ENV['MAGLEV_HOME']}/bin/rackup scgi.ru"
+    sh "#{MAGLEV_HOME}/bin/rackup maglev.ru"
+  end
+
+  desc "kill SCGI apps named in rack-*.pid"
+  task :killapps do
+    pid = nil
+    pid_files = Dir.glob('rack-*.pid')
+    pid_files.each do |pid_file|
+      begin
+        pid = File.readlines(pid_file)
+        sh %{ kill #{pid} }
+      rescue
+        puts "Failed on file #{pid_file}  pid #{pid}"
+      ensure
+        rm_f pid_file
+      end
+    end
+  end
+
+  task :pbm => :env do
+    sh "nohup echo STONENAME $STONENAME GGD $GEMSTONE_GLOBAL_DIR &"
+    port = 3000
+    sh "nohup #{MAGLEV_HOME}/bin/rackup --server SCGI --pid rack-#{port}.pid --port #{port} maglev.ru &"
+  end
+  desc "Run multiple MagLev servers on the Sinatra SCGI app"
+
+  desc "Rm the log files and start the lighttpd server for multi servers"
+  task :servers => 'log' do
+    rm_f ['log/error.log', 'log/access.log']
+    sh 'lighttpd -D -f perf/lighttpd-multi.conf '
+  end
+
+
+  task :apps => :env do
+    running = Dir.glob('rack-*.pid')
+    if running.size > 0
+      puts "You have running rack instances, clear them out and delete #{running.inspect}"
+    else
+      2.times do |i|
+        port = "300#{i}"
+        sh "nohup #{MAGLEV_HOME}/bin/rackup --server SCGI --pid rack-#{port}.pid --port #{port} maglev.ru &"
+      end
+    end
   end
 end

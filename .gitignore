@@ -1,3 +1,6 @@
+jmeter.log
+nohup.out
+rack*.pid
 log
 statmonitor*.out
 *~
