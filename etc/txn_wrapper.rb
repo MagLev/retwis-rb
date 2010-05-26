@@ -3,6 +3,7 @@
 # The transaction is committed only upon success or redirect.
 
 class MagLevTransactionWrapper
+
   def initialize(app)
     @app = app
   end
@@ -25,5 +26,4 @@ class MagLevTransactionWrapper
   def committable?(status)
     ! status.nil? &&  (200..399).include?(status)
   end
-
 end

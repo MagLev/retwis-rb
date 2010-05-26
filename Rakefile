@@ -1,30 +1,22 @@
 require 'rake/clean'
 
-CLEAN.include 'statmonitor*.out'
+CLEAN.include('log/*', 'nohup.out', '*~', 'jmeter.log')
 
-task :default => :'mri:run'
+task :default => :'maglev:run'
 
 directory 'log'
 
 MAGLEV_HOME = ENV['MAGLEV_HOME']
-PERF_STONE = "perf"
 
-task :env do
-  # Setup the environment for the :perf tasks.
-  # If STONENAME is set, maglev-ruby does NOT set GEMSTONE_SYS_CONF or
-  # GEMSTONE_GLOBAL_DIR We pick up ./gem.conf for the VMs, and the stone is
-  # already configured with ./perf/perf.conf
-  ENV['STONENAME'] = PERF_STONE
-  ENV['GEMSTONE_GLOBAL_DIR'] = MAGLEV_HOME
-end
-
+# Tasks in the :maglev namespace setup and run a single instance of the
+# MagLev VM using WEBrick to serve the pages.
 namespace :maglev do
   desc "Commit code, setup db and run app with WEBrick"
   task :run => [:commit, :initdb] do
     sh %{ #{MAGLEV_HOME}/bin/rackup --port 4567 maglev.ru }
   end
 
-  desc "Create a bunch of users, have them follow each other."
+  desc "Create a bunch of users, have them follow each other; data stored in maglev stone."
   task :signup => [:commit, :initdb] do
     sh %{ maglev-ruby -Mcommit etc/signup_and_follow.rb }
   end
@@ -41,30 +33,44 @@ namespace :maglev do
 
 end
 
+# Tasks in the :mri namespace setup and run a single instance of the MRI
+# VM, using whatever default server you have installed (thin, mongrel,
+# etc.).  You need to manually manage the Redis server and ensure that it
+# is running before running these tasks.
 namespace :mri do
   desc "Run the sinatra app with mri (make sure redis is running first)."
   task :run do
     sh %{ ruby app.rb }
   end
 
-  desc "Create a bunch of users, have them follow each other."
+  desc "Create a bunch of users, have them follow each other; data stored in Redis"
   task :signup do
     sh %{ ruby etc/signup_and_follow.rb }
   end
 end
 
-# The :perf namespace defines tasks that create and manage a carefully
-# configured stone, and tasks to run against that stone so that we can do
-# some performance analysis.
+# Tasks in the :perf namespace create and manage a carefully configured
+# stone, and run MagLev against that stone so that we can do some
+# performance analysis.
 namespace :perf do
-  PERF_CONF  = File.join(File.dirname(__FILE__), "perf", "perf.conf")
+  PERF_CONF  = File.join(File.dirname(__FILE__), "etc", "perf.conf")
+  PERF_STONE = "perf"
 
-  desc "Run the app against the perf stone"
-  task :run => :env do
-    sh %{ maglev-ruby app.rb }
+  task :env do
+    # Setup the environment for the :perf tasks.
+    # If STONENAME is set, maglev-ruby does NOT set GEMSTONE_SYS_CONF or
+    # GEMSTONE_GLOBAL_DIR We pick up ./gem.conf for the VMs, and the stone
+    # is already configured with ./perf/perf.conf
+    ENV['STONENAME'] = PERF_STONE
+    ENV['GEMSTONE_GLOBAL_DIR'] = MAGLEV_HOME
   end
 
-  desc "Commit and setup test data"
+  desc "Run app.rb with MagLev + WEBrick on the perf stone."
+  task :run => :env do
+    sh %{ #{MAGLEV_HOME}/bin/rackup --port 4567 maglev.ru }
+  end
+
+  desc "Commit and setup test data to the perf stone."
   task :init => :env do |t, args|
     sh %{ maglev-ruby -Mcommit domain-maglev.rb }
     sh %{ maglev-ruby -Mcommit etc/setup.rb }
@@ -85,45 +91,59 @@ namespace :perf do
     end
   end
 
-  desc "Start statmonitor (waits...)"
+  desc "Start statmonitor on the perf stone (waits)."
   task :statmonitor => :env do
-    out = File.join(File.dirname(__FILE__), "statmonitor-#{$$}")
+    out = File.join(File.dirname(__FILE__), "log", "statmonitor-#{$$}")
     smon = File.join(MAGLEV_HOME, "gemstone", "bin", "statmonitor")
     # -A:    Collects system stats
     # -i 1:  Sample every second
     # -u 5:  Write file every 5 seconds
     # -f x:  Write output to file named x
-    puts "Starting statmonitor.  Saving data to #{out}"
+    puts "Starting statmonitor on #{PERF_STONE}.  Saving data to #{out}"
     sh %{ #{smon} #{PERF_STONE} -A -i 1 -u 5 -f #{out} }
   end
 
-  desc "Start VSD (waits...)"
+  desc "Start VSD (waits)."
   task :vsd do
     vsd = File.join(MAGLEV_HOME, "gemstone", "bin", "vsd")
     sh %{ #{vsd} }
   end
-end
 
-# Run the app against lighttpd talking SCGI to MagLev
-namespace :scgi do
-  desc "Show processes listening on ports 300?"
-  task :list do
-    sh %{ netstat -anf inet | grep 300 ; true }
+  desc "Start MagLev SCGI servers running; default starts one server.
+        If the multi parameter is given, multiple servers are started.
+        If the gprof parameter is given, one server is started using etc/gprof_wrapper.rb.
+        Only one of gprof / multi is honored."
+  task :scgi, :param, :needs => :env do |t, args|
+    running = Dir.glob('rack-*.pid')
+    if running.size > 0
+      puts "You have running rack instances, stop them, delete #{running.inspect} and retry."
+      exit
+    end
+    p args
+
+    if args.param == 'multi'
+      2.times do |i|
+        port = "300#{i}"
+        sh %{ nohup #{MAGLEV_HOME}/bin/rackup --server SCGI --pid rack-#{port}.pid --port #{port} maglev.ru & }
+      end
+    else
+      conf = (args.param == 'gprof') ? 'gprof.ru' : 'maglev.ru'
+      port = 3000
+      sh %{ #{MAGLEV_HOME}/bin/rackup --server SCGI --pid rack-#{port} --port #{port} #{conf} }
+    end
   end
 
-  desc "Rm the log files and start the lighttpd server"
-  task :server => 'log' do
+  desc "Start the lighttpd server using SCGI to connect to MagLev."
+  task :httpd, :multi, :needs => 'log' do |t, args|
+    p args.multi
+    conf = args.multi ? 'etc/lighttpd-multi.conf' : 'etc/lighttpd.conf'
+    puts "CONF: #{conf}"
     rm_f ['log/error.log', 'log/access.log']
-    sh 'lighttpd -D -f perf/lighttpd.conf '
-  end
-
-  desc "Run MagLev on the Sinatra SCGI app"
-  task :app => :env do
-    sh "#{MAGLEV_HOME}/bin/rackup --server SCGI --port 3000 maglev.ru"
+    sh %{ lighttpd -D -f #{conf} }
   end
 
   desc "kill SCGI apps named in rack-*.pid"
-  task :killapps do
+  task :killscgi do
     pid = nil
     pid_files = Dir.glob('rack-*.pid')
     pid_files.each do |pid_file|
@@ -138,29 +158,8 @@ namespace :scgi do
     end
   end
 
-  task :pbm => :env do
-    sh "nohup echo STONENAME $STONENAME GGD $GEMSTONE_GLOBAL_DIR &"
-    port = 3000
-    sh "nohup #{MAGLEV_HOME}/bin/rackup --server SCGI --pid rack-#{port}.pid --port #{port} maglev.ru &"
-  end
-  desc "Run multiple MagLev servers on the Sinatra SCGI app"
-
-  desc "Rm the log files and start the lighttpd server for multi servers"
-  task :servers => 'log' do
-    rm_f ['log/error.log', 'log/access.log']
-    sh 'lighttpd -D -f perf/lighttpd-multi.conf '
-  end
-
-
-  task :apps => :env do
-    running = Dir.glob('rack-*.pid')
-    if running.size > 0
-      puts "You have running rack instances, clear them out and delete #{running.inspect}"
-    else
-      2.times do |i|
-        port = "300#{i}"
-        sh "nohup #{MAGLEV_HOME}/bin/rackup --server SCGI --pid rack-#{port}.pid --port #{port} maglev.ru &"
-      end
-    end
+  desc "Show processes listening on ports 300?"
+  task :list do
+    sh %{ netstat -anf inet | grep 300 ; true }
   end
 end

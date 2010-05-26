@@ -32,6 +32,7 @@ you can do:
 
 There are similar tasks for MRI, use rake -T to list them.
 
+
 Changes from Original
 ---------------------
 
@@ -60,6 +61,33 @@ Non-functional Changes:
 * Removed what appears to be debug cruft from the MRI version.
 * `etc/signup_and_follow.rb`: A script to setup a bunch of users and
   followers.  Can be run by both MRI and MagLev.
+
+Performance Notes
+-----------------
+
+Sinatra uses Tilt to cache pre-compiled erb templates for the views.  A
+side-effect of the way Tilt currently caches the templates, causes six to
+eight new, unique symbols to be generated per (rendered) HTTP request.  In
+some of my performance testing, Tilt was generating a thousand symbols a
+second.  Since MagLev is a shared, distributed object system, so those
+symbols must be coordinated with all VMs, and are never garbage collected.
+This puts a big strain on the Symbol system and causes intermittent pauses
+in the application (1-3 seconds, or so).  MagLev runs better without the
+Tilt caching.  Sinatra does not currently offer an option to turn of Tilt
+caching, so, if you want to turn off caching, you can edit
+$MAGLEV_HOME/lib/maglev/gems/1.8/gems/sinatra-1.0/lib/sinatra/base.rb and
+comment out the include of Tilt::CompileSite around line 298:
+
+  module Templates
+    # include Tilt::CompileSite  # <== Comment out this line
+
+    def erb(template, options={}, locals={})
+      options[:outvar] = '@_out_buf'
+      render :erb, template, options, locals
+    end
+
+This should leave MRI unaffected, since it has its own copy of the Sinatra
+gem.
 
 License
 -------
