@@ -27,14 +27,13 @@ To create the performance stone, setup its config, and kick it off:
 
     $ rake perf:createstone
 
-Once the stone is created, you can initialize it with the app code and
-initial test data by doing:
+Once the stone is created, you can initialize it with the app code and test
+data by doing:
 
     $ rake perf:init
 
-
 If you need to stop or restart the perf stone, just cd to $MAGLEV_HOME and
-use the <tt>perf:*</tt> rake tasks:
+use the `perf:*` rake tasks:
 
     $ cd $MAGLEV_HOME
     $ rake perf:stop
@@ -49,8 +48,8 @@ To run the application on MagLev with a single VM using WEBrick:
 
     $ rake perf:run
 
-You can then hit http://localhost:4567/ and login as a testuser (test users
-were created during <tt>rake perf:init</tt>):
+You can then hit [http://localhost:4567/](http://localhost:4567/) and login
+as a testuser (test users were created during `rake perf:init`):
 
    User:     testuser0
    Password: password0
@@ -58,7 +57,7 @@ were created during <tt>rake perf:init</tt>):
 Run one VM using SCGI + lighttpd
 --------------------------------
 
-Make sure you've stopped any VMs running from <tt>rake perf:run</tt>, or
+Make sure you've stopped any VMs running from `rake perf:run`, or
 you'll get a socket connection error.
 
 To start a single instance of MagLev listening on port 3000 for SCGI
@@ -71,7 +70,7 @@ Then, from a different shell, start up lighttpd:
     $ rake perf:httpd
 
 You can then hit http://localhost:4567/ and login as a testuser (test users
-were created during <tt>rake perf:init</tt>):
+were created during `rake perf:init`):
 
    User:     testuser0
    Password: password0
@@ -92,13 +91,13 @@ Then start up lighttpd:
     $ rake perf:httpd[multi]
 
 Now hit http://localhost:4567/ and login as a testuser (test users were
-created during <tt>rake perf:init</tt>):
+created during `rake perf:init`):
 
    User:     testuser0
    Password: password0
 
 
-To stop the SCGI processes represented by the <tt>rack-3xxx.pid</tt> files,
+To stop the SCGI processes represented by the `rack-3xxx.pid` files,
 run:
 
     $ rake perf:killscgi

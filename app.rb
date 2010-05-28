@@ -4,11 +4,7 @@ require 'sinatra'
 require 'erb'
 
 if defined? Maglev
-  require 'domain-maglev'
-  require 'etc/txn_wrapper'
-
-  use MagLevTransactionWrapper
-
+  raise "PERSISTENT_ROOT[:users] not found: did you forget to run 'rake perf:init'? " unless Maglev::PERSISTENT_ROOT.key?(:users)
   $title = "MagLev Twitter"
 else
   require 'rubyredis'
@@ -21,8 +17,10 @@ require 'login-signup'
 
 set :sessions, true
 
-def redis
-  $redis ||= RedisClient.new(:timeout => nil)
+unless defined? Maglev
+  def redis
+    $redis ||= RedisClient.new(:timeout => nil)
+  end
 end
 
 get '/' do
