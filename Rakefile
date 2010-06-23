@@ -56,7 +56,7 @@ namespace :perf do
   PERF_CONF  = File.join(File.dirname(__FILE__), "etc", "perf.conf")
   PERF_STONE = "perf"
 
-  task :env do
+  task :env => 'log' do
     # Setup the environment for the :perf tasks.
     # If STONENAME is set, maglev-ruby does NOT set GEMSTONE_SYS_CONF or
     # GEMSTONE_GLOBAL_DIR We pick up ./gem.conf for the VMs, and the stone

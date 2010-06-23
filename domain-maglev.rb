@@ -65,7 +65,7 @@ class User < Model
 
   def self.new_users
     if Maglev::PERSISTENT_ROOT[:users].size > 10
-      Maglev::PERSISTENT_ROOT[:users][-10, -1]
+      Maglev::PERSISTENT_ROOT[:users][-10, 10]
     else
       Maglev::PERSISTENT_ROOT[:users]
     end

@@ -69,11 +69,11 @@ Sinatra uses Tilt to cache pre-compiled erb templates for the views.  A
 side-effect of the way Tilt currently caches the templates, causes six to
 eight new, unique symbols to be generated per (rendered) HTTP request.  In
 some of my performance testing, Tilt was generating a thousand symbols a
-second.  Since MagLev is a shared, distributed object system, so those
-symbols must be coordinated with all VMs, and are never garbage collected.
-This puts a big strain on the Symbol system and causes intermittent pauses
-in the application (1-3 seconds, or so).  MagLev runs better without the
-Tilt caching.  Sinatra does not currently offer an option to turn of Tilt
+second.  Since MagLev is a shared, distributed object system, those symbols
+must be coordinated with all VMs, and are never garbage collected.  This
+puts a big strain on the Symbol system and causes intermittent pauses in
+the application (1-3 seconds, or so).  MagLev runs better without the Tilt
+caching.  Sinatra does not currently offer an option to turn off Tilt
 caching, so, if you want to turn off caching, you can edit
 $MAGLEV_HOME/lib/maglev/gems/1.8/gems/sinatra-1.0/lib/sinatra/base.rb and
 comment out the include of Tilt::CompileSite around line 298:
@@ -89,6 +89,12 @@ comment out the include of Tilt::CompileSite around line 298:
 This should leave MRI unaffected, since it has its own copy of the Sinatra
 gem.
 
+Since the problem really only manifests in development mode (where all
+cached items are essentially thrown away for each request), you can run an
+unpatched version of sinatra in production mode and avoid the pathological
+symbol creation mess.
+
+  What about settings.reload_templates ?
 License
 -------
 

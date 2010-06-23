@@ -66,6 +66,8 @@ end
 
 get '/:username' do |username|
   @user = User.find_by_username(username)
+  # '/:username' also happens to match '/favicon.ico', and others...
+  throw(:halt, [404, "Not found"]) if @user.nil?
 
   @posts = @user.posts
   @followers = @user.followers
