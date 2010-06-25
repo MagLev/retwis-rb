@@ -1,27 +1,29 @@
 require 'rake/clean'
 
 CLEAN.include('log/*', 'nohup.out', '*~', 'jmeter.log')
+CLOBBER.include('rack-*.pid')
+
+MAGLEV_HOME = ENV['MAGLEV_HOME']
 
 task :default => :'maglev:run'
 
 directory 'log'
 
-MAGLEV_HOME = ENV['MAGLEV_HOME']
-
 # Tasks in the :maglev namespace setup and run a single instance of the
 # MagLev VM using WEBrick to serve the pages.
+
 namespace :maglev do
   desc "Commit code, setup db and run app with WEBrick"
   task :run => [:commit, :initdb] do
     sh %{ #{MAGLEV_HOME}/bin/rackup --port 4567 maglev.ru }
   end
 
-  desc "Create a bunch of users, have them follow each other; data stored in maglev stone."
+  desc "Create a bunch of users, have them follow each other; data stored in maglev stone (does init and commit)."
   task :signup => [:commit, :initdb] do
     sh %{ maglev-ruby -Mcommit etc/signup_and_follow.rb }
   end
 
-  desc "Initialize the db, if not already initialized (may be forced)."
+  desc "Initialize the db (create persistent roots), if not already initialized (may be forced)."
   task :initdb, :force do |t, args|
     sh %{ maglev-ruby -Mcommit etc/setup.rb #{args.force} }
   end
@@ -129,7 +131,7 @@ namespace :perf do
     else
       conf = (args.param == 'gprof') ? 'gprof.ru' : 'maglev.ru'
       port = 3000
-      sh %{ #{MAGLEV_HOME}/bin/rackup --server SCGI --pid rack-#{port} --port #{port} #{conf} }
+      sh %{ #{MAGLEV_HOME}/bin/rackup --server SCGI --pid rack-#{port}.pid --port #{port} #{conf} }
     end
   end
 
@@ -149,6 +151,7 @@ namespace :perf do
     pid_files.each do |pid_file|
       begin
         pid = File.readlines(pid_file)
+        puts "Killing #{pid}"
         sh %{ kill #{pid} }
       rescue
         puts "Failed on file #{pid_file}  pid #{pid}"
