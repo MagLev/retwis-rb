@@ -1,4 +1,3 @@
-
 before do
   unless %w(/login /signup).include?(request.path_info) or 
       request.path_info =~ /\.css$/ or 
@@ -26,7 +25,7 @@ end
 post '/signup' do
   if params[:username] !~ /^\w+$/
     @signup_error = "Username must only contain letters, numbers and underscores."
-  elsif redis.key?("user:username:#{params[:username]}")
+  elsif User.find_by_username(params[:username])
     @signup_error = "That username is taken."
   elsif params[:username].length < 4
     @signup_error = "Username must be at least 4 characters"
